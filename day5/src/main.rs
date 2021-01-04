@@ -1,11 +1,6 @@
 fn main() {
 	let boarding_passes = include_str!("input.txt").split('\n').collect::<Vec<&str>>();
-
-	part1(&boarding_passes);
-}
-
-fn part1(v: &Vec<&str>) {
-	let mut seat_ids = v
+	let mut seat_ids = boarding_passes
 		.iter()
 		.map(|s| {
 			let temp = s
@@ -30,5 +25,20 @@ fn part1(v: &Vec<&str>) {
 
 	seat_ids.sort();
 
-	print!("Highest ticket: {}", seat_ids.last().unwrap());
+	part1(&seat_ids);
+	part2(&seat_ids);
+}
+
+fn part1(v: &Vec<usize>) {
+	println!("Highest ticket: {}", v.last().unwrap());
+}
+
+fn part2(v: &Vec<usize>) {
+	let l = v.chunks(2);
+
+	for p in l {
+		if p.len() == 2 && p[0] != p[1] - 1 {
+			return println!("My ticket {}", p[0] + 1);
+		}
+	}
 }
