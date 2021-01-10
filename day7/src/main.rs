@@ -5,10 +5,49 @@ type Rules<'a> = HashMap<BagSpec<'a>, Option<Vec<(usize, BagSpec<'a>)>>>;
 
 fn main() {
 	let input = include_str!("input.txt");
-
 	let rules = parse_rules(&input);
 
-	dbg!(rules);
+	let needle = &("shiny", "gold");
+
+	part1(&rules, needle);
+	part2(&rules, needle);
+}
+
+fn part1(rules: &Rules, needle: &(&str, &str)) {
+	let len: Vec<_> = rules
+		.keys()
+		.filter(|&k| k != needle)
+		.filter(|&k| subgraph_contains(&rules, k, needle))
+		.collect();
+
+	println!("part1: {}", len.len());
+}
+
+fn part2(rules: &Rules, needle: &(&str, &str)) {
+	let sum = bag_quantities(rules, needle);
+
+	println!("part2: {}", sum);
+}
+
+fn bag_quantities(graph: &Rules<'_>, root: &(&str, &str)) -> usize {
+	if let Some(Some(neighboors)) = graph.get(root) {
+		return neighboors
+			.iter()
+			.map(|&(qt, n)| qt + qt * bag_quantities(graph, &n))
+			.sum();
+	}
+	0
+}
+
+fn subgraph_contains(graph: &Rules<'_>, root: &(&str, &str), needle: &(&str, &str)) -> bool {
+	if let Some(Some(neighbors)) = graph.get(root) {
+		for (_, neighbor) in neighbors {
+			if needle == neighbor || subgraph_contains(graph, neighbor, needle) {
+				return true;
+			}
+		}
+	}
+	false
 }
 
 fn parse_rules(input: &str) -> Rules<'_> {
