@@ -1,5 +1,7 @@
+use std::collections::HashSet;
+
 #[derive(Debug, Clone, Copy)]
-enum InstructionKInd {
+enum InstructionKind {
 	Acc,
 	Jmp,
 	Nop,
@@ -7,7 +9,7 @@ enum InstructionKInd {
 
 #[derive(Debug, Clone, Copy)]
 struct Instruction {
-	kind: InstructionKInd,
+	kind: InstructionKind,
 	operand: isize,
 }
 
@@ -18,7 +20,40 @@ fn main() {
 
 	let program = parse_program(input);
 
-	dbg!(&program[0..2]);
+	part1(&program);
+}
+
+fn part1(prog: &Program) {
+	let mut set: HashSet<usize> = HashSet::new();
+	let mut program_index: usize = 1;
+	let mut acc: isize = 0;
+
+	while let None = set.get(&program_index) {
+		// print!("{}, {}", program_index, acc);
+		set.insert(program_index);
+
+		let instruction = prog.get(program_index).unwrap();
+		match instruction {
+			Instruction {
+				kind: InstructionKind::Nop,
+				..
+			} => program_index += 1,
+			Instruction {
+				kind: InstructionKind::Acc,
+				..
+			} => {
+				acc = acc + instruction.operand;
+				program_index += 1;
+			}
+			Instruction {
+				kind: InstructionKind::Jmp,
+				..
+			} => program_index = (program_index as isize + instruction.operand) as usize,
+		}
+		// println!(", {:?}", instruction);
+	}
+
+	println!("part1: {}", acc);
 }
 
 fn parse_program(input: &str) -> Program {
@@ -29,9 +64,9 @@ fn parse_program(input: &str) -> Program {
 			Instruction {
 				kind: match tokens.next() {
 					Some(tok) => match tok {
-						"acc" => InstructionKInd::Acc,
-						"jmp" => InstructionKInd::Jmp,
-						"nop" => InstructionKInd::Nop,
+						"acc" => InstructionKind::Acc,
+						"jmp" => InstructionKind::Jmp,
+						"nop" => InstructionKind::Nop,
 						_ => panic!("Unknown instruction kind {}", tok),
 					},
 					None => panic!("for line {}, expected instruction kind", l),
