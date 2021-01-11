@@ -25,7 +25,7 @@ fn main() {
 
 fn part1(prog: &Program) {
 	let mut set: HashSet<usize> = HashSet::new();
-	let mut program_index: usize = 1;
+	let mut program_index: usize = 0;
 	let mut acc: isize = 0;
 
 	while let None = set.get(&program_index) {
@@ -53,7 +53,10 @@ fn part1(prog: &Program) {
 		// println!(", {:?}", instruction);
 	}
 
-	println!("part1: {}", acc);
+	println!(
+		"part1: before executing {} a second time, the accumulator was {}",
+		program_index, acc
+	);
 }
 
 fn parse_program(input: &str) -> Program {
