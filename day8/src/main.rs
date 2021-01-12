@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::{collections::HashSet, todo};
 
 #[derive(Debug, Clone, Copy)]
 enum InstructionKind {
@@ -15,48 +15,58 @@ struct Instruction {
 
 type Program = Vec<Instruction>;
 
+#[derive(Debug, Clone, Copy, Default)]
+struct ProgramState {
+	acc: isize,
+	index: usize,
+}
+
+impl ProgramState {
+	fn next(self, prog: &Program) -> Option<Self> {
+		if self.index > prog.len() {
+			return None;
+		}
+
+		let instruction = prog[self.index];
+		Some(match instruction.kind {
+			InstructionKind::Nop => Self {
+				index: self.index + 1,
+				..self
+			},
+			InstructionKind::Acc => Self {
+				index: self.index + 1,
+				acc: self.acc + instruction.operand,
+			},
+			InstructionKind::Jmp => Self {
+				index: (self.index as isize + instruction.operand) as usize,
+				..self
+			},
+		})
+	}
+}
+
 fn main() {
 	let input = include_str!("input.txt");
 
 	let program = parse_program(input);
 
 	part1(&program);
+	part2(program);
 }
 
 fn part1(prog: &Program) {
 	let mut set: HashSet<usize> = HashSet::new();
-	let mut program_index: usize = 0;
-	let mut acc: isize = 0;
+	let mut state: ProgramState = Default::default();
 
-	while let None = set.get(&program_index) {
-		// print!("{}, {}", program_index, acc);
-		set.insert(program_index);
-
-		let instruction = prog.get(program_index).unwrap();
-		match instruction {
-			Instruction {
-				kind: InstructionKind::Nop,
-				..
-			} => program_index += 1,
-			Instruction {
-				kind: InstructionKind::Acc,
-				..
-			} => {
-				acc = acc + instruction.operand;
-				program_index += 1;
-			}
-			Instruction {
-				kind: InstructionKind::Jmp,
-				..
-			} => program_index = (program_index as isize + instruction.operand) as usize,
-		}
-		// println!(", {:?}", instruction);
+	while set.insert(state.index) {
+		state = state.next(prog).unwrap();
 	}
 
-	println!(
-		"part1: before executing {} a second time, the accumulator was {}",
-		program_index, acc
-	);
+	println!("part1: {}", state.acc);
+}
+
+fn part2(program: Program) {
+	todo!("Brute force it, take all of them, flip one, see which one terminates");
 }
 
 fn parse_program(input: &str) -> Program {
