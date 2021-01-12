@@ -68,9 +68,12 @@ fn part2(program: &Program) {
 			InstructionKind::Jmp | InstructionKind::Nop => Some(i),
 			_ => None,
 		})
-		.filter_map(|i| {
+		.map(|i| {
 			let mut variant = program.clone();
 			flip_kind(&mut variant[i].kind);
+			variant
+		})
+		.find_map(|variant| {
 			let res = exec_prog(&variant);
 
 			match res.0 {
@@ -78,7 +81,6 @@ fn part2(program: &Program) {
 				false => None,
 			}
 		})
-		.next()
 		.unwrap();
 
 	println!("part2: success loop with acc = {}", val);
