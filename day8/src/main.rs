@@ -1,4 +1,4 @@
-use std::{collections::HashSet, todo};
+use std::collections::HashSet;
 
 #[derive(Debug, Clone, Copy)]
 enum InstructionKind {
@@ -23,7 +23,7 @@ struct ProgramState {
 
 impl ProgramState {
 	fn next(self, prog: &Program) -> Option<Self> {
-		if self.index > prog.len() {
+		if self.index >= prog.len() {
 			return None;
 		}
 
@@ -51,22 +51,59 @@ fn main() {
 	let program = parse_program(input);
 
 	part1(&program);
-	part2(program);
+	part2(&program);
 }
 
 fn part1(prog: &Program) {
+	let a = exec_prog(prog);
+
+	println!("part1: infinite loop with acc = {}", a.1);
+}
+
+fn part2(program: &Program) {
+	let val = program
+		.iter()
+		.enumerate()
+		.filter_map(|(i, ins)| match ins.kind {
+			InstructionKind::Jmp | InstructionKind::Nop => Some(i),
+			_ => None,
+		})
+		.filter_map(|i| {
+			let mut variant = program.clone();
+			flip_kind(&mut variant[i].kind);
+			let res = exec_prog(&variant);
+
+			match res.0 {
+				true => Some(res.1),
+				false => None,
+			}
+		})
+		.next()
+		.unwrap();
+
+	println!("part2: success loop with acc = {}", val);
+}
+
+fn exec_prog(prog: &Program) -> (bool, isize) {
 	let mut set: HashSet<usize> = HashSet::new();
 	let mut state: ProgramState = Default::default();
 
 	while set.insert(state.index) {
-		state = state.next(prog).unwrap();
+		match state.next(prog) {
+			Some(next_state) => state = next_state,
+			None => return (true, state.acc),
+		}
 	}
 
-	println!("part1: {}", state.acc);
+	return (false, state.acc);
 }
 
-fn part2(program: Program) {
-	todo!("Brute force it, take all of them, flip one, see which one terminates");
+fn flip_kind(kind: &mut InstructionKind) {
+	*kind = match *kind {
+		InstructionKind::Jmp => InstructionKind::Nop,
+		InstructionKind::Nop => InstructionKind::Jmp,
+		x => x,
+	}
 }
 
 fn parse_program(input: &str) -> Program {
