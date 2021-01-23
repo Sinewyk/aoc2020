@@ -13,7 +13,7 @@ type Joltages = Vec<usize>;
 fn main() {
 	let mut jolts: Joltages = std::iter::once(0)
 		.chain(
-			include_str!("input2.txt")
+			include_str!("input.txt")
 				.lines()
 				.map(str::parse)
 				.map(Result::unwrap),
@@ -21,6 +21,8 @@ fn main() {
 		.collect();
 
 	jolts.sort_unstable();
+
+	jolts.push(jolts.iter().max().unwrap() + 3);
 
 	part1(&jolts);
 	part2(&jolts);
@@ -35,8 +37,27 @@ fn part2(jolts: &Joltages) {
 
 	for i in (0..(n - 1)).into_iter().rev() {
 		let val = jolts[i];
-		dbg!(i, val);
+
+		let range = (i + 1)..=std::cmp::min(i + 3, n - 1);
+
+		let neighbours_paths: usize = range
+			.into_iter()
+			.filter_map(|j| {
+				let j_val = jolts[j];
+				let gap = j_val - val;
+
+				if (1..=3).contains(&gap) {
+					num_to_path.get(&j_val)
+				} else {
+					None
+				}
+			})
+			.sum();
+
+		num_to_path.insert(val, neighbours_paths);
 	}
+
+	println!("part2: {}", num_to_path.get(&0).unwrap());
 }
 
 fn part1(jolts: &Joltages) {
