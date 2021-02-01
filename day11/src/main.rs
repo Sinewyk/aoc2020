@@ -1,3 +1,5 @@
+use std::convert::TryInto;
+
 use grid::Grid;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -10,35 +12,21 @@ enum Cell {
 fn main() {
 	let input_as_lines: Vec<&str> = include_str!("input.txt").lines().collect();
 
-	let row_length = input_as_lines[0].len();
+	let initial_grid = parse(input_as_lines);
 
-	let initial_grid = Grid::from_vec(
-		input_as_lines
-			.iter()
-			.map(|s| {
-				s.chars()
-					.map(|c| match c {
-						'.' => Cell::Floor,
-						'L' => Cell::Seat,
-						_ => unreachable!(),
-					})
-					.collect::<Vec<Cell>>()
-			})
-			.flatten()
-			.collect(),
-		row_length,
-	);
-
-	fn process(grid: Grid<Cell>) -> Grid<Cell> {
-		let (next_grid, res) = predict(&grid);
+	fn process(
+		predicter: impl Fn(&Grid<Cell>) -> (Grid<Cell>, bool),
+		grid: &Grid<Cell>,
+	) -> Grid<Cell> {
+		let (next_grid, res) = predicter(&grid);
 		if res == true {
 			return next_grid;
 		} else {
-			return process(next_grid);
+			return process(predicter, &next_grid);
 		}
 	}
 
-	let final_grid = process(initial_grid);
+	let final_grid = process(predict_part1, &initial_grid);
 
 	println!(
 		"part1: {}",
@@ -46,71 +34,211 @@ fn main() {
 			.iter()
 			.filter(|o| matches!(o, Cell::Occupied))
 			.count()
+	);
+}
+
+fn parse(text: Vec<&str>) -> Grid<Cell> {
+	let row_length = text[0].len();
+
+	Grid::from_vec(
+		text.iter()
+			.map(|s| {
+				s.chars()
+					.map(|c| match c {
+						'.' => Cell::Floor,
+						'L' => Cell::Seat,
+						'#' => Cell::Occupied,
+						_ => unreachable!(),
+					})
+					.collect::<Vec<Cell>>()
+			})
+			.flatten()
+			.collect(),
+		row_length,
 	)
 }
 
-fn predict(grid: &Grid<Cell>) -> (Grid<Cell>, bool) {
+fn predict_part1(grid: &Grid<Cell>) -> (Grid<Cell>, bool) {
 	let mut next_grid = grid.clone();
 
-	let size = &grid.size();
-
-	for i in 0..(size.0) {
-		for j in 0..(size.1) {
-			match grid[i][j] {
-				Cell::Seat => {
-					let neighboors = grid_adjacent_occupied_seats(grid, &(i, j), size);
-					if neighboors == 0 {
-						next_grid[i][j] = Cell::Occupied;
-					}
-				}
-				Cell::Occupied => {
-					let neighboors = grid_adjacent_occupied_seats(grid, &(i, j), size);
-					if neighboors >= 4 {
-						next_grid[i][j] = Cell::Seat;
-					}
-				}
-				Cell::Floor => (),
+	grid_enumerate(grid).for_each(|(pos, c)| match *c {
+		Cell::Seat => {
+			let neighboors = grid_adjacent_occupied_seats(grid, pos);
+			if neighboors == 0 {
+				next_grid[pos.0][pos.1] = Cell::Occupied;
 			}
 		}
-	}
+		Cell::Occupied => {
+			let neighboors = grid_adjacent_occupied_seats(grid, pos);
+			if neighboors >= 4 {
+				next_grid[pos.0][pos.1] = Cell::Seat;
+			}
+		}
+		Cell::Floor => (),
+	});
 
 	let b = &next_grid == grid;
 
 	(next_grid, b)
 }
 
-fn grid_adjacent_occupied_seats(
-	grid: &Grid<Cell>,
-	pos: &(usize, usize),
-	size: &(usize, usize),
-) -> usize {
-	// j_range is moved into first i_range loop if we keep range, because automatic into_iter by default for "for" loops ...
-	// and range doesn't implement iter apparently ?
-	// so collect into a vector to iter
-	let i_range = ((if let Some(x) = pos.0.checked_sub(1) {
-		x
-	} else {
-		0
-	})..=std::cmp::min(pos.0 + 1, size.0 - 1))
-		.collect::<Vec<usize>>();
-	let j_range = ((if let Some(x) = pos.1.checked_sub(1) {
-		x
-	} else {
-		0
-	})..=std::cmp::min(pos.1 + 1, size.1 - 1))
-		.collect::<Vec<usize>>();
-
-	let mut count = 0;
-	for i in i_range.iter() {
-		for j in j_range.iter() {
-			if i == &pos.0 && j == &pos.1 {
-				continue;
+fn grid_adjacent_occupied_seats(grid: &Grid<Cell>, pos: (usize, usize)) -> usize {
+	(-1isize..=1)
+		.map(|dx| (-1isize..=1).map(move |dy| (dx, dy)))
+		.flatten()
+		.filter(|&(dx, dy)| !(dx == 0 && dy == 0))
+		.map(move |(dx, dy)| (pos.0 as isize + dx, pos.1 as isize + dy))
+		.map(|o| {
+			grid.get(
+				o.0.try_into().unwrap_or(usize::MAX),
+				o.1.try_into().unwrap_or(usize::MAX),
+			)
+		})
+		.filter(|o| {
+			if let Some(c) = o {
+				return matches!(c, Cell::Occupied);
+			} else {
+				return false;
 			}
-			if let Cell::Occupied = grid[*i][*j] {
-				count += 1;
-			}
-		}
-	}
+		})
+		.count()
+}
 
-	count
+#[test]
+fn test_parse() {
+	assert_eq!(
+		parse(
+			indoc::indoc!(
+				"
+				L.LL
+				LLLL
+				L.L.
+				"
+			)
+			.lines()
+			.collect::<Vec<&str>>(),
+		),
+		Grid::from_vec(
+			vec![
+				//first rows
+				Cell::Seat,
+				Cell::Floor,
+				Cell::Seat,
+				Cell::Seat,
+				// second row
+				Cell::Seat,
+				Cell::Seat,
+				Cell::Seat,
+				Cell::Seat,
+				//third row
+				Cell::Seat,
+				Cell::Floor,
+				Cell::Seat,
+				Cell::Floor
+			],
+			4
+		)
+	);
+}
+
+#[test]
+fn test_parse_with_occupied() {
+	assert_eq!(
+		parse(
+			indoc::indoc!(
+				"
+				L.#L
+				L#LL
+				L#L.
+				"
+			)
+			.lines()
+			.collect::<Vec<&str>>(),
+		),
+		Grid::from_vec(
+			vec![
+				//first rows
+				Cell::Seat,
+				Cell::Floor,
+				Cell::Occupied,
+				Cell::Seat,
+				// second row
+				Cell::Seat,
+				Cell::Occupied,
+				Cell::Seat,
+				Cell::Seat,
+				//third row
+				Cell::Seat,
+				Cell::Occupied,
+				Cell::Seat,
+				Cell::Floor
+			],
+			4
+		)
+	);
+}
+
+#[test]
+fn test_adjacent() {
+	let grid = parse(
+		indoc::indoc!(
+			"
+			L.#L
+			L#LL
+			L#L.
+			"
+		)
+		.lines()
+		.collect::<Vec<&str>>(),
+	);
+
+	dbg!(grid_adjacent_occupied_seats(&grid, (0, 1)));
+
+	assert_eq!(grid_adjacent_occupied_seats(&grid, (0, 0)), 1);
+	assert_eq!(grid_adjacent_occupied_seats(&grid, (0, 1)), 2);
+	assert_eq!(grid_adjacent_occupied_seats(&grid, (1, 2)), 3);
+}
+
+fn grid_enumerate<'a, T>(grid: &'a Grid<T>) -> impl Iterator<Item = ((usize, usize), &T)> + 'a
+where
+	T: Clone,
+{
+	let (_, col) = grid.size();
+
+	grid.iter()
+		.enumerate()
+		.map(move |(i, c)| ((i / col, i % col), c))
+}
+
+#[test]
+fn test_iterate() {
+	let grid = parse(
+		indoc::indoc!(
+			"
+			L.#L
+			L#LL
+			L#L.
+			"
+		)
+		.lines()
+		.collect::<Vec<&str>>(),
+	);
+
+	assert_eq!(
+		grid_enumerate(&grid).collect::<Vec<((usize, usize), &Cell)>>(),
+		vec![
+			((0, 0), &Cell::Seat),
+			((0, 1), &Cell::Floor),
+			((0, 2), &Cell::Occupied),
+			((0, 3), &Cell::Seat),
+			((1, 0), &Cell::Seat),
+			((1, 1), &Cell::Occupied),
+			((1, 2), &Cell::Seat),
+			((1, 3), &Cell::Seat),
+			((2, 0), &Cell::Seat),
+			((2, 1), &Cell::Occupied),
+			((2, 2), &Cell::Seat),
+			((2, 3), &Cell::Floor)
+		]
+	);
 }
