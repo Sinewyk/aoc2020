@@ -74,33 +74,33 @@ impl State {
 				direction: self.direction,
 				position: Position {
 					north: self.position.north + instruction.value,
-					west: 0,
+					west: self.position.west,
 				},
 			},
 			InstructionKind::MoveSouth => State {
 				direction: self.direction,
 				position: Position {
 					north: self.position.north - instruction.value,
-					west: 0,
+					west: self.position.west,
 				},
 			},
 			InstructionKind::MoveEast => State {
 				direction: self.direction,
 				position: Position {
-					north: 0,
+					north: self.position.north,
 					west: self.position.west - instruction.value,
 				},
 			},
 			InstructionKind::MoveWest => State {
 				direction: self.direction,
 				position: Position {
-					north: 0,
+					north: self.position.north,
 					west: self.position.west + instruction.value,
 				},
 			},
 			InstructionKind::TurnLeft => State {
 				direction: self.direction.turn(-instruction.value),
-				position: Position { north: 0, west: 0 },
+				position: self.position,
 			},
 			InstructionKind::TurnRight => State {
 				direction: self.direction.turn(instruction.value),
@@ -108,7 +108,24 @@ impl State {
 			},
 			InstructionKind::GoForward => State {
 				direction: self.direction,
-				position: self.position,
+				position: match self.direction {
+					Direction::N => Position {
+						north: self.position.north + instruction.value,
+						west: self.position.west,
+					},
+					Direction::E => Position {
+						north: self.position.north,
+						west: self.position.west - instruction.value,
+					},
+					Direction::S => Position {
+						north: self.position.north - instruction.value,
+						west: self.position.west,
+					},
+					Direction::W => Position {
+						north: self.position.north,
+						west: self.position.west + instruction.value,
+					},
+				},
 			},
 		}
 	}
@@ -121,7 +138,23 @@ fn main() {
 
 	let program: Program = parse(input_as_lines);
 
-	unimplemented!("Execute the program on the starting state");
+	let final_state = program.iter().fold(
+		State {
+			direction: Direction::E,
+			position: Position { north: 0, west: 0 },
+		},
+		|prev_state, instruction| {
+			// dbg!(&prev_state, instruction);
+			prev_state.exec(instruction)
+		},
+	);
+
+	println!(
+		"N: {}, W: {} and so manhattan distance is {}",
+		final_state.position.north,
+		final_state.position.west,
+		final_state.position.north.abs() + final_state.position.west.abs()
+	);
 }
 
 fn parse(input: Vec<&str>) -> Program {
@@ -302,6 +335,27 @@ mod tests {
 				State {
 					position: Position { north: 0, west: 0 },
 					direction: Direction::W,
+				},
+			),
+			// moving forward
+			(
+				Instruction {
+					kind: InstructionKind::GoForward,
+					value: 1,
+				},
+				State {
+					position: Position { north: 1, west: 0 },
+					direction: Direction::N,
+				},
+			),
+			(
+				Instruction {
+					kind: InstructionKind::GoForward,
+					value: 2,
+				},
+				State {
+					position: Position { north: 2, west: 0 },
+					direction: Direction::N,
 				},
 			),
 		];
