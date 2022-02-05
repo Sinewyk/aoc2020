@@ -21,111 +21,86 @@ struct Position {
 	west: isize,
 }
 
-#[derive(Debug, PartialEq, Clone, Copy)]
-enum Direction {
-	N,
-	S,
-	W,
-	E,
-}
-
-impl Direction {
-	fn turn(&self, angle: isize) -> Self {
-		match (self, angle) {
-			(Direction::N, 90) => Direction::E,
-			(Direction::N, 180) => Direction::S,
-			(Direction::N, 270) => Direction::W,
-			(Direction::N, -90) => Direction::W,
-			(Direction::N, -180) => Direction::S,
-			(Direction::N, -270) => Direction::E,
-			(Direction::W, 90) => Direction::N,
-			(Direction::W, 180) => Direction::E,
-			(Direction::W, 270) => Direction::S,
-			(Direction::W, -90) => Direction::S,
-			(Direction::W, -180) => Direction::E,
-			(Direction::W, -270) => Direction::N,
-			(Direction::E, 90) => Direction::S,
-			(Direction::E, 180) => Direction::W,
-			(Direction::E, 270) => Direction::N,
-			(Direction::E, -90) => Direction::N,
-			(Direction::E, -180) => Direction::W,
-			(Direction::E, -270) => Direction::S,
-			(Direction::S, 90) => Direction::W,
-			(Direction::S, 180) => Direction::N,
-			(Direction::S, 270) => Direction::E,
-			(Direction::S, -90) => Direction::E,
-			(Direction::S, -180) => Direction::N,
-			(Direction::S, -270) => Direction::W,
-			_ => unreachable!(),
-		}
-	}
-}
-
 #[derive(Debug, PartialEq)]
 struct State {
-	position: Position,
-	direction: Direction,
+	waypoint_vector: Position,
+	ship_position: Position,
 }
 
 impl State {
-	fn exec(&self, instruction: &Instruction) -> Self {
+	fn exec(self, instruction: &Instruction) -> Self {
 		match instruction.kind {
 			InstructionKind::MoveNorth => State {
-				direction: self.direction,
-				position: Position {
-					north: self.position.north + instruction.value,
-					west: self.position.west,
+				waypoint_vector: Position {
+					north: self.waypoint_vector.north + instruction.value,
+					..self.waypoint_vector
 				},
+				..self
 			},
 			InstructionKind::MoveSouth => State {
-				direction: self.direction,
-				position: Position {
-					north: self.position.north - instruction.value,
-					west: self.position.west,
+				waypoint_vector: Position {
+					north: self.waypoint_vector.north - instruction.value,
+					..self.waypoint_vector
 				},
+				..self
 			},
 			InstructionKind::MoveEast => State {
-				direction: self.direction,
-				position: Position {
-					north: self.position.north,
-					west: self.position.west - instruction.value,
+				waypoint_vector: Position {
+					west: self.waypoint_vector.west - instruction.value,
+					..self.waypoint_vector
 				},
+				..self
 			},
 			InstructionKind::MoveWest => State {
-				direction: self.direction,
-				position: Position {
-					north: self.position.north,
-					west: self.position.west + instruction.value,
+				waypoint_vector: Position {
+					west: self.waypoint_vector.west + instruction.value,
+					..self.waypoint_vector
 				},
+				..self
 			},
 			InstructionKind::TurnLeft => State {
-				direction: self.direction.turn(-instruction.value),
-				position: self.position,
+				waypoint_vector: match instruction.value {
+					90 => Position {
+						north: -self.waypoint_vector.west,
+						west: self.waypoint_vector.north,
+					},
+					180 => Position {
+						north: -self.waypoint_vector.north,
+						west: -self.waypoint_vector.west,
+					},
+					270 => Position {
+						north: self.waypoint_vector.west,
+						west: -self.waypoint_vector.north,
+					},
+					_ => unreachable!(),
+				},
+				..self
 			},
 			InstructionKind::TurnRight => State {
-				direction: self.direction.turn(instruction.value),
-				position: self.position,
+				waypoint_vector: match instruction.value {
+					90 => Position {
+						north: self.waypoint_vector.west,
+						west: -self.waypoint_vector.north,
+					},
+					180 => Position {
+						north: -self.waypoint_vector.north,
+						west: -self.waypoint_vector.west,
+					},
+					270 => Position {
+						north: -self.waypoint_vector.west,
+						west: self.waypoint_vector.north,
+					},
+					_ => unreachable!(),
+				},
+				..self
 			},
 			InstructionKind::GoForward => State {
-				direction: self.direction,
-				position: match self.direction {
-					Direction::N => Position {
-						north: self.position.north + instruction.value,
-						west: self.position.west,
-					},
-					Direction::E => Position {
-						north: self.position.north,
-						west: self.position.west - instruction.value,
-					},
-					Direction::S => Position {
-						north: self.position.north - instruction.value,
-						west: self.position.west,
-					},
-					Direction::W => Position {
-						north: self.position.north,
-						west: self.position.west + instruction.value,
-					},
+				ship_position: Position {
+					north: self.ship_position.north
+						+ self.waypoint_vector.north * instruction.value,
+					west: self.ship_position.west + self.waypoint_vector.west * instruction.value,
 				},
+				..self
 			},
 		}
 	}
@@ -140,20 +115,20 @@ fn main() {
 
 	let final_state = program.iter().fold(
 		State {
-			direction: Direction::E,
-			position: Position { north: 0, west: 0 },
+			waypoint_vector: Position {
+				north: 1,
+				west: -10,
+			},
+			ship_position: Position { north: 0, west: 0 },
 		},
-		|prev_state, instruction| {
-			// dbg!(&prev_state, instruction);
-			prev_state.exec(instruction)
-		},
+		|prev_state, instruction| prev_state.exec(instruction),
 	);
 
 	println!(
 		"N: {}, W: {} and so manhattan distance is {}",
-		final_state.position.north,
-		final_state.position.west,
-		final_state.position.north.abs() + final_state.position.west.abs()
+		final_state.ship_position.north,
+		final_state.ship_position.west,
+		final_state.ship_position.north.abs() + final_state.ship_position.west.abs()
 	);
 }
 
@@ -179,191 +154,5 @@ fn line_parse(line: &str) -> Instruction {
 			_ => unreachable!(),
 		},
 		value: isize::from_str_radix(the_rest, 10).unwrap(),
-	}
-}
-
-#[cfg(test)]
-mod tests {
-	use super::*;
-
-	#[test]
-	fn test_exec() {
-		let initial_state = State {
-			position: Position { north: 0, west: 0 },
-			direction: Direction::N,
-		};
-
-		let data = vec![
-			// Move
-			(
-				Instruction {
-					kind: InstructionKind::MoveNorth,
-					value: 1,
-				},
-				State {
-					position: Position { north: 1, west: 0 },
-					direction: Direction::N,
-				},
-			),
-			(
-				Instruction {
-					kind: InstructionKind::MoveSouth,
-					value: 1,
-				},
-				State {
-					position: Position { north: -1, west: 0 },
-					direction: Direction::N,
-				},
-			),
-			(
-				Instruction {
-					kind: InstructionKind::MoveWest,
-					value: 1,
-				},
-				State {
-					position: Position { north: 0, west: 1 },
-					direction: Direction::N,
-				},
-			),
-			(
-				Instruction {
-					kind: InstructionKind::MoveEast,
-					value: 1,
-				},
-				State {
-					position: Position { north: 0, west: -1 },
-					direction: Direction::N,
-				},
-			),
-			// value
-			(
-				Instruction {
-					kind: InstructionKind::MoveNorth,
-					value: 2,
-				},
-				State {
-					position: Position { north: 2, west: 0 },
-					direction: Direction::N,
-				},
-			),
-			(
-				Instruction {
-					kind: InstructionKind::MoveSouth,
-					value: 2,
-				},
-				State {
-					position: Position { north: -2, west: 0 },
-					direction: Direction::N,
-				},
-			),
-			(
-				Instruction {
-					kind: InstructionKind::MoveWest,
-					value: 2,
-				},
-				State {
-					position: Position { north: 0, west: 2 },
-					direction: Direction::N,
-				},
-			),
-			(
-				Instruction {
-					kind: InstructionKind::MoveEast,
-					value: 2,
-				},
-				State {
-					position: Position { north: 0, west: -2 },
-					direction: Direction::N,
-				},
-			),
-			// Turn
-			(
-				Instruction {
-					kind: InstructionKind::TurnLeft,
-					value: 90,
-				},
-				State {
-					position: Position { north: 0, west: 0 },
-					direction: Direction::W,
-				},
-			),
-			(
-				Instruction {
-					kind: InstructionKind::TurnRight,
-					value: 90,
-				},
-				State {
-					position: Position { north: 0, west: 0 },
-					direction: Direction::E,
-				},
-			),
-			(
-				Instruction {
-					kind: InstructionKind::TurnLeft,
-					value: 180,
-				},
-				State {
-					position: Position { north: 0, west: 0 },
-					direction: Direction::S,
-				},
-			),
-			(
-				Instruction {
-					kind: InstructionKind::TurnRight,
-					value: 180,
-				},
-				State {
-					position: Position { north: 0, west: 0 },
-					direction: Direction::S,
-				},
-			),
-			(
-				Instruction {
-					kind: InstructionKind::TurnLeft,
-					value: 270,
-				},
-				State {
-					position: Position { north: 0, west: 0 },
-					direction: Direction::E,
-				},
-			),
-			(
-				Instruction {
-					kind: InstructionKind::TurnRight,
-					value: 270,
-				},
-				State {
-					position: Position { north: 0, west: 0 },
-					direction: Direction::W,
-				},
-			),
-			// moving forward
-			(
-				Instruction {
-					kind: InstructionKind::GoForward,
-					value: 1,
-				},
-				State {
-					position: Position { north: 1, west: 0 },
-					direction: Direction::N,
-				},
-			),
-			(
-				Instruction {
-					kind: InstructionKind::GoForward,
-					value: 2,
-				},
-				State {
-					position: Position { north: 2, west: 0 },
-					direction: Direction::N,
-				},
-			),
-		];
-
-		data.into_iter().for_each(|x| {
-			let ins = x.0;
-
-			assert_eq!(initial_state.exec(&ins), x.1);
-		})
 	}
 }
